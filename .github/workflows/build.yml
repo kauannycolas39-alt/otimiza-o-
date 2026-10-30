@@ -403,4 +403,5 @@ jobs:
                   Phone("Xiaomi / Redmi / Poco", "Poco C65", 6.74, 90, 1),
                   Phone("Xiaomi / Redmi / Poco", "Poco M6", 6.79, 90, 1),
                   Phone("Xiaomi / Redmi / Poco", "Poco X5 Pro", 6.67, 120, 2),
-                  
+                            name: Otimizador-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
