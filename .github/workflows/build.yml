@@ -15,16 +15,49 @@ jobs:
 
       - name: Criar projeto
         run: |
-          cat > settings.gradle.kts <<'EOF_0'
-          pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
-          }
-          rootProject.name = "Otimizador"
-          include(":app")
+          cat > README.md <<'EOF_0'
+          # NitroCore
+
+          App Android (Kotlin + Jetpack Compose) de otimização e assistente de sensibilidade.
+
+          ## Instalar (só com o celular)
+          1. Crie um repositório no GitHub e adicione `.github/workflows/build.yml`.
+          2. Aba Ações > Build APK > baixe o artefato `Otimizador-APK` e instale `app-debug.apk`.
+          3. Instale e inicie o app Shizuku (para as otimizações avançadas).
+          Desinstale a versão anterior antes: cada build tem uma assinatura debug diferente.
+
+          ## O que funciona de verdade
+          - Status do aparelho (RAM, armazenamento, bateria, temperatura quando o sistema informa).
+          - Abrir Free Fire Normal/MAX, favorita salva, link da Play Store se não instalado.
+          - Limpar RAM, cache e modo desempenho de jogo: **somente com Shizuku ativo** (Android 12+ para o modo de jogo).
+          - Limpar arquivos: apaga só o cache temporário do próprio app, com confirmação.
+          - Cálculo local de sensibilidade, sliders por jogo, feedback, perfis salvos, tema.
+
+          ## O que exige configuração
+          - **Sensi com IA / Buscar sensi atualizada**: suba o backend (pasta `backend/`), coloque a URL HTTPS em Ajustes > Assistente de IA e aceite o consentimento.
+          - Busca atualizada exige `SEARCH_API_KEY` (Brave Search). Sem ela, o app mostra "Não foi possível confirmar recomendações recentes".
+
+          ## Demonstração / em breve
+          Notificações, otimização automática, outros idiomas, textos de privacidade e termos (exemplo).
+
+          ## Backend
+          ```
+          cd backend
+          npm install
+          cp .env.example .env   # preencha e exporte as variáveis (ou use o painel da hospedagem)
+          node server.js
+          ```
+          Variáveis: `AI_PROVIDER` (anthropic|openai), `AI_API_KEY`, `AI_MODEL`, `SEARCH_API_KEY`, `OPENAI_BASE_URL`, `PORT`. As chaves nunca vão no app. Hospede com HTTPS.
+
+          ## Permissões
+          INTERNET e ACCESS_NETWORK_STATE (IA), permissão do Shizuku, consulta aos pacotes do Free Fire (`<queries>`).
+
+          ## Limitações
+          - O app **não altera** configurações nem arquivos de nenhum jogo, não injeta código e não usa macros. Sensibilidade é sempre digitada manualmente no jogo.
+          - Sem Shizuku, o Android não permite limpar RAM/cache de outros apps: o app explica e abre as configurações.
+          - Escalas de PUBG e CODM são aproximadas; confira os limites no jogo.
+          - Valores de sensibilidade são sugestões para teste, sem garantia de resultado.
+          - Não afiliado à Garena nem a outras desenvolvedoras.
           EOF_0
           cat > build.gradle.kts <<'EOF_1'
           plugins {
@@ -37,8 +70,19 @@ jobs:
           android.useAndroidX=true
           kotlin.code.style=official
           EOF_2
+          cat > settings.gradle.kts <<'EOF_3'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "Otimizador"
+          include(":app")
+          EOF_3
           mkdir -p app
-          cat > app/build.gradle.kts <<'EOF_3'
+          cat > app/build.gradle.kts <<'EOF_4'
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
@@ -52,26 +96,44 @@ jobs:
                   applicationId = "com.otimizador"
                   minSdk = 24
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
+                  versionCode = 2
+                  versionName = "1.1.0"
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
               kotlinOptions { jvmTarget = "17" }
+              buildFeatures { compose = true }
+              composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
           }
 
           dependencies {
               implementation("dev.rikka.shizuku:api:13.1.5")
               implementation("dev.rikka.shizuku:provider:13.1.5")
+              implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.foundation:foundation")
+              implementation("androidx.compose.animation:animation")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-core")
+              implementation("androidx.activity:activity-compose:1.9.0")
+              implementation("androidx.core:core-ktx:1.13.1")
           }
-          EOF_3
+          EOF_4
           mkdir -p app/src/main
-          cat > app/src/main/AndroidManifest.xml <<'EOF_4'
+          cat > app/src/main/AndroidManifest.xml <<'EOF_5'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
               <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+              <queries>
+                  <package android:name="com.dts.freefireth" />
+                  <package android:name="com.dts.freefiremax" />
+              </queries>
 
               <application
                   android:label="NitroCore"
@@ -88,8 +150,6 @@ jobs:
                       </intent-filter>
                   </activity>
 
-                  <activity android:name=".SensiActivity" android:exported="false" />
-
                   <provider
                       android:name="rikka.shizuku.ShizukuProvider"
                       android:authorities="${applicationId}.shizuku"
@@ -99,554 +159,261 @@ jobs:
                       android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
               </application>
           </manifest>
-          EOF_4
-          mkdir -p app/src/main/res/drawable
-          cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF_5'
-          <?xml version="1.0" encoding="utf-8"?>
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
-            <path android:fillColor="#04070D" android:pathData="M24,0H84A24,24 0 0 1 108,24V84A24,24 0 0 1 84,108H24A24,24 0 0 1 0,84V24A24,24 0 0 1 24,0Z"/>
-            <path android:strokeColor="#0099FF" android:strokeWidth="1.5" android:pathData="M24,2H84A22,22 0 0 1 106,24V84A22,22 0 0 1 84,106H24A22,22 0 0 1 2,84V24A22,22 0 0 1 24,2Z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M37,29h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M37,74h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M29,37v3h5v-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M74,37v3h5v-3z"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M38.5,29V21"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M38.5,79V87"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,38.5H21"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,38.5H87"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M44,29h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M44,74h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M29,44v3h5v-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M74,44v3h5v-3z"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M45.5,29V17"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M45.5,79V91"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M29,45.5H17"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M79,45.5H91"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M51,29h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M51,74h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M29,51v3h5v-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M74,51v3h5v-3z"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M52.5,29V13"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M52.5,79V95"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,52.5H13"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,52.5H95"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M58,29h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M58,74h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M29,58v3h5v-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M74,58v3h5v-3z"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M59.5,29V17"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M59.5,79V91"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M29,59.5H17"/>
-            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M79,59.5H91"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M65,29h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M65,74h3v5h-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M29,65v3h5v-3z"/>
-            <path android:fillColor="#BFC6D2" android:pathData="M74,65v3h5v-3z"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M66.5,29V21"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M66.5,79V87"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,66.5H21"/>
-            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,66.5H87"/>
-            <path android:fillColor="#2B303B" android:strokeColor="#A7B1C0" android:strokeWidth="1.5" android:pathData="M34,34H74V74H34Z"/>
-            <path android:fillColor="#060A12" android:strokeColor="#00A0FF" android:strokeWidth="1.2" android:pathData="M43,43H65V65H43Z"/>
-            <path android:fillColor="#3300C8FF" android:pathData="M54,54m-9,0a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"/>
-            <path android:fillColor="#FFFFFF" android:pathData="M56,44L46.5,55.5H52.5L50.5,64L61,51.5H55Z"/>
-          </vector>
           EOF_5
           mkdir -p app/src/main/java/com/otimizador
           cat > app/src/main/java/com/otimizador/MainActivity.kt <<'EOF_6'
           package com.otimizador
 
-          import android.app.Activity
-          import android.content.ClipData
-          import android.content.ClipboardManager
-          import android.content.Context
-          import android.content.Intent
-          import android.content.pm.PackageManager
           import android.os.Bundle
-          import android.widget.Button
-          import android.widget.LinearLayout
-          import android.widget.ScrollView
-          import android.widget.TextView
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Build
+          import androidx.compose.material.icons.filled.Edit
+          import androidx.compose.material.icons.filled.Settings
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.NavigationBar
+          import androidx.compose.material3.NavigationBarItem
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Modifier
           import rikka.shizuku.Shizuku
-          import kotlin.concurrent.thread
 
-          class MainActivity : Activity() {
+          object AppState {
+              val tick = mutableStateOf(0)
+              fun bump() { tick.value = tick.value + 1 }
+          }
 
-              private lateinit var log: TextView
-              private val REQ = 100
-
-              private val permListener = Shizuku.OnRequestPermissionResultListener { _, result ->
-                  runOnUiThread {
-                      append(if (result == PackageManager.PERMISSION_GRANTED) "Permissão concedida. Toque no botão de novo." else "Permissão negada.")
-                  }
-              }
-
-              // ---------- SCRIPTS ----------
-
-              private fun fluidez() = """
-          echo '=== FLUIDEZ ==='
-          echo '[1] Animações 0.5x'
-          settings put global window_animation_scale 0.5
-          settings put global transition_animation_scale 0.5
-          settings put global animator_duration_scale 0.5
-          echo '[2] Taxa de atualização alta'
-          settings put system peak_refresh_rate 120.0
-          settings put system min_refresh_rate 90.0
-          echo '[3] Long press 300ms'
-          settings put secure long_press_timeout 300
-          echo '[4] Recompilando apps (pode demorar alguns minutos)'
-          cmd package compile -m speed-profile -a
-          echo '=== CONCLUÍDO ==='
-          """
-
-              private fun modoJogo(pkg: String) = """
-          if ! pm path $pkg >/dev/null 2>&1; then echo 'Jogo não instalado: $pkg'; exit 0; fi
-          echo '=== MODO JOGO: $pkg ==='
-          echo '[1] Desligando economia de bateria'
-          settings put global low_power 0
-          echo '[2] Tela em taxa alta'
-          settings put system peak_refresh_rate 120.0
-          settings put system min_refresh_rate 90.0
-          echo '[3] Modo desempenho do jogo (Android 12+)'
-          cmd game mode performance $pkg
-          cmd power set-fixed-performance-mode-enabled true
-          echo '[4] Compilando o jogo'
-          cmd package compile -m speed -f $pkg
-          echo '[5] Limpando apps em segundo plano'
-          am kill-all
-          echo '=== PRONTO ==='
-          """
-
-              private fun limparCache() = """
-          echo 'Limpando cache de todos os apps...'
-          pm trim-caches 999999999999
-          echo 'Feito.'
-          """
-
-              private fun fecharApps() = """
-          echo 'Fechando apps em segundo plano...'
-          am kill-all
-          echo 'Feito.'
-          """
-
-              private fun animacoes() = """
-          settings put global window_animation_scale 0.5
-          settings put global transition_animation_scale 0.5
-          settings put global animator_duration_scale 0.5
-          echo 'Animações em 0.5x.'
-          """
-
-              private fun mouse(v: Int) = """
-          settings put system pointer_speed $v
-          echo 'Velocidade do ponteiro (mouse): $v  (faixa -7 a 7)'
-          """
-
-              private fun restaurar() = """
-          settings put global window_animation_scale 1.0
-          settings put global transition_animation_scale 1.0
-          settings put global animator_duration_scale 1.0
-          settings delete system peak_refresh_rate
-          settings delete system min_refresh_rate
-          settings put secure long_press_timeout 500
-          settings put system pointer_speed 0
-          cmd power set-fixed-performance-mode-enabled false
-          echo 'Configurações restauradas ao padrão.'
-          """
-
-              // ---------- UI ----------
+          class MainActivity : ComponentActivity() {
+              private val permListener = Shizuku.OnRequestPermissionResultListener { _, _ -> AppState.bump() }
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+                  Prefs.init(applicationContext)
                   Shizuku.addRequestPermissionResultListener(permListener)
+                  setContent { App() }
+              }
 
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(32, 64, 32, 32)
-                  }
-                  fun btn(t: String, f: () -> Unit) {
-                      root.addView(Button(this).apply {
-                          text = t
-                          isAllCaps = false
-                          setOnClickListener { f() }
-                      })
-                  }
-
-                  root.addView(TextView(this).apply {
-                      text = "NitroCore"
-                      textSize = 22f
-                  })
-
-                  btn("⚡ Fluidez geral + recompilar apps") { run("Fluidez", fluidez()) }
-                  btn("🎮 Modo Jogo: Free Fire MAX") { run("Free Fire MAX", modoJogo("com.dts.freefiremax")) }
-                  btn("🎮 Modo Jogo: Free Fire normal") { run("Free Fire", modoJogo("com.dts.freefireth")) }
-                  btn("🧹 Limpar cache geral") { run("Limpar cache", limparCache()) }
-                  btn("❌ Fechar apps em segundo plano") { run("Fechar apps", fecharApps()) }
-                  btn("🎞️ Reduzir animações") { run("Animações", animacoes()) }
-                  btn("🖱️ Mouse (GG Mouse Pro): ponteiro rápido") { run("Mouse", mouse(7)) }
-                  btn("🖱️ Mouse: ponteiro padrão") { run("Mouse", mouse(0)) }
-                  btn("♻️ Restaurar padrão") { run("Restaurar", restaurar()) }
-                  btn("🎯 Assistente de Sensi (escolha seu celular)") { startActivity(Intent(this, SensiActivity::class.java)) }
-                  btn("📋 Copiar scripts (p/ Brevent)") {
-                      val txt = fluidez() + "\n" + modoJogo("com.dts.freefiremax")
-                      val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                      cm.setPrimaryClip(ClipData.newPlainText("scripts", txt))
-                      append("Scripts copiados.")
-                  }
-
-                  log = TextView(this).apply { textSize = 13f; setPadding(0, 24, 0, 0) }
-                  root.addView(log)
-
-                  setContentView(ScrollView(this).apply { addView(root) })
-                  append("Abra o Shizuku e deixe ele ativo antes de usar.")
+              override fun onResume() {
+                  super.onResume()
+                  AppState.bump()
               }
 
               override fun onDestroy() {
                   Shizuku.removeRequestPermissionResultListener(permListener)
                   super.onDestroy()
               }
+          }
 
-              private fun append(s: String) { log.append(s + "\n") }
-
-              private fun ready(): Boolean {
-                  if (!Shizuku.pingBinder()) {
-                      append("Shizuku não está rodando. Abra o app Shizuku e inicie.")
-                      return false
-                  }
-                  if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                      Shizuku.requestPermission(REQ)
-                      return false
-                  }
-                  return true
-              }
-
-              private fun run(name: String, script: String) {
-                  if (!ready()) return
-                  append("\n▶ $name")
-                  thread {
-                      try {
-                          val m = Shizuku::class.java.getDeclaredMethod(
-                              "newProcess",
-                              Array<String>::class.java,
-                              Array<String>::class.java,
-                              String::class.java
-                          )
-                          m.isAccessible = true
-                          val p = m.invoke(null, arrayOf("sh", "-c", "(" + script + ") 2>&1"), null, null) as Process
-                          p.inputStream.bufferedReader().forEachLine { l -> runOnUiThread { append(l) } }
-                          p.waitFor()
-                          runOnUiThread { append("✔ terminou") }
-                      } catch (e: Throwable) {
-                          runOnUiThread { append("Erro: " + e.message) }
+          @Composable
+          fun App() {
+              var theme by remember { mutableStateOf(Prefs.theme) }
+              NitroTheme(theme) {
+                  var tab by remember { mutableStateOf(0) }
+                  Scaffold(
+                      containerColor = MaterialTheme.colorScheme.background,
+                      bottomBar = {
+                          NavigationBar {
+                              NavigationBarItem(selected = tab == 0, onClick = { tab = 0 },
+                                  icon = { Icon(Icons.Default.Build, contentDescription = null) }, label = { Text("Otimizar") })
+                              NavigationBarItem(selected = tab == 1, onClick = { tab = 1 },
+                                  icon = { Icon(Icons.Default.Edit, contentDescription = null) }, label = { Text("Sensibilidade") })
+                              NavigationBarItem(selected = tab == 2, onClick = { tab = 2 },
+                                  icon = { Icon(Icons.Default.Settings, contentDescription = null) }, label = { Text("Ajustes") })
+                          }
+                      }
+                  ) { pad ->
+                      Box(Modifier.padding(pad).fillMaxSize()) {
+                          when (tab) {
+                              0 -> OtimizarScreen()
+                              1 -> SensiScreen()
+                              else -> ConfigScreen(theme) { theme = it; Prefs.theme = it }
+                          }
                       }
                   }
               }
           }
           EOF_6
-          mkdir -p app/src/main/java/com/otimizador
-          cat > app/src/main/java/com/otimizador/SensiActivity.kt <<'EOF_7'
+          mkdir -p app/src/main/java/com/otimizador/data
+          cat > app/src/main/java/com/otimizador/data/Models.kt <<'EOF_7'
           package com.otimizador
 
-          import android.app.Activity
-          import android.app.ActivityManager
-          import android.content.ClipData
-          import android.content.ClipboardManager
-          import android.content.Context
-          import android.os.Build
-          import android.os.Bundle
-          import android.text.InputType
-          import android.view.View
-          import android.widget.AdapterView
-          import android.widget.ArrayAdapter
-          import android.widget.Button
-          import android.widget.EditText
-          import android.widget.LinearLayout
-          import android.widget.ScrollView
-          import android.widget.Spinner
-          import android.widget.TextView        import kotlin.math.roundToInt
-          import kotlin.math.sqrt
+          data class SliderDef(val name: String, val min: Int, val max: Int, val basePct: Int, val def: Int)
 
-          data class Phone(val brand: String, val model: String, val diag: Double, val hz: Int, val tier: Int)
+          private fun s(n: String, mn: Int, mx: Int, b: Int, d: Int) = SliderDef(n, mn, mx, b, d)
 
-          object PhoneDb {
-              // tier: 1 = básico, 2 = intermediário, 3 = topo de linha (valores aproximados)
-              val phones = listOf(
-                  Phone("Motorola", "Moto G04", 6.56, 90, 1),
-                  Phone("Motorola", "Moto G24", 6.56, 90, 1),
-                  Phone("Motorola", "Moto G34 5G", 6.5, 120, 2),
-                  Phone("Motorola", "Moto G54 5G", 6.5, 120, 2),
-                  Phone("Motorola", "Moto G84 5G", 6.5, 120, 2),
-                  Phone("Motorola", "Moto G85", 6.67, 120, 2),
-                  Phone("Motorola", "Edge 40 Neo", 6.55, 144, 2),
-                  Phone("Motorola", "Edge 50 Fusion", 6.7, 120, 2),
-                  Phone("Samsung", "Galaxy A04", 6.5, 60, 1),
-                  Phone("Samsung", "Galaxy A14", 6.6, 90, 1),
-                  Phone("Samsung", "Galaxy A15", 6.5, 90, 1),
-                  Phone("Samsung", "Galaxy A25 5G", 6.5, 120, 2),
-                  Phone("Samsung", "Galaxy A35 5G", 6.6, 120, 2),
-                  Phone("Samsung", "Galaxy A54 5G", 6.4, 120, 2),
-                  Phone("Samsung", "Galaxy A55 5G", 6.6, 120, 2),
-                  Phone("Samsung", "Galaxy M14", 6.6, 90, 1),
-                  Phone("Samsung", "Galaxy S23", 6.1, 120, 3),
-                  Phone("Samsung", "Galaxy S24", 6.2, 120, 3),
-                  Phone("Samsung", "Galaxy S24 Ultra", 6.8, 120, 3),
-                  Phone("Xiaomi / Redmi / Poco", "Redmi 12C", 6.71, 60, 1),
-                  Phone("Xiaomi / Redmi / Poco", "Redmi 12", 6.79, 90, 1),
-                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 12", 6.67, 120, 2),
-                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 13", 6.67, 120, 2),
-                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 13 Pro", 6.67, 120, 2),
-                  Phone("Xiaomi / Redmi / Poco", "Poco C65", 6.74, 90, 1),
-                  Phone("Xiaomi / Redmi / Poco", "Poco M6", 6.79, 90, 1),
-                  Phone("Xiaomi / Redmi / Poco", "Poco X5 Pro", 6.67, 120, 2),
-                  Phone("Xiaomi / Redmi / Poco", "Poco X6 Pro", 6.67, 120, 3),
-                  Phone("Xiaomi / Redmi / Poco", "Poco F5", 6.67, 120, 3),
-                  Phone("Infinix", "Hot 40i", 6.56, 90, 1),
-                  Phone("Infinix", "Hot 40 Pro", 6.78, 120, 1),
-                  Phone("Infinix", "Note 40", 6.78, 120, 2),
-                  Phone("Realme", "C55", 6.72, 90, 1),
-                  Phone("Realme", "C67", 6.72, 90, 1),
-                  Phone("Realme", "12 Pro", 6.7, 120, 2),
-                  Phone("Gamer", "ASUS ROG Phone 8", 6.78, 165, 3),
-                  Phone("Gamer", "Red Magic 9 Pro", 6.8, 120, 3)
-              )
+          private fun ffSliders() = listOf(
+              s("Sensibilidade geral", 0, 100, 85, 50), s("Ponto vermelho", 0, 100, 80, 50),
+              s("Mira 2x", 0, 100, 75, 50), s("Mira 4x", 0, 100, 70, 50),
+              s("Mira AWM", 0, 100, 60, 50), s("Olhar livre", 0, 100, 65, 50)
+          )
 
-              fun brands(): List<String> = phones.map { it.brand }.distinct()
+          enum class Game(val label: String, val pkg: String?, val sliders: List<SliderDef>, val howTo: String) {
+              FF("Free Fire Normal", "com.dts.freefireth", ffSliders(),
+                  "Abra o Free Fire > engrenagem (Configurações) > aba Sensibilidade. Ajuste cada barra para o valor indicado e teste no treino."),
+              FFMAX("Free Fire MAX", "com.dts.freefiremax", ffSliders(),
+                  "Abra o Free Fire MAX > engrenagem (Configurações) > aba Sensibilidade. Ajuste cada barra para o valor indicado e teste no treino."),
+              PUBG("PUBG Mobile", "com.tencent.ig", listOf(
+                  s("Câmera (sem mira)", 1, 300, 38, 100), s("Ponto vermelho", 1, 300, 30, 50),
+                  s("Mira 2x", 1, 300, 26, 40), s("Mira 4x", 1, 300, 22, 30)),
+                  "No PUBG Mobile: Configurações > Sensibilidade. A escala aqui é aproximada: confira os limites no seu jogo."),
+              CODM("Call of Duty Mobile", "com.activision.callofduty.shooter", listOf(
+                  s("Câmera (multijogador)", 0, 200, 50, 100), s("Mira (ADS) geral", 0, 200, 50, 100),
+                  s("Ponto vermelho", 0, 200, 48, 100), s("Sniper", 0, 200, 40, 80)),
+                  "No CODM: Configurações > Controles > Sensibilidade. A escala aqui é aproximada: confira os limites no seu jogo."),
+              OUTROS("Outros", null, listOf(
+                  s("Sensibilidade geral", 0, 100, 60, 50), s("Mira", 0, 100, 55, 50), s("Olhar livre", 0, 100, 55, 50)),
+                  "Procure a opção Sensibilidade nas configurações do seu jogo e use os valores como ponto de partida, adaptando à escala dele.")
           }
 
-          class SensiActivity : Activity() {
+          data class DeviceProfile(val brand: String, val model: String, val ramGb: Double, val hz: Int, val tier: Int, val diag: Double)
 
-              private val DETECT = "📱 Meu aparelho (detectar)"
-              private val MANUAL = "✏️ Outro (digitar dados)"
+          data class DeviceStatus(
+              val ramUsedMb: Long, val ramTotalMb: Long,
+              val storageUsedGb: Double, val storageTotalGb: Double,
+              val tempC: Float?, val batteryPct: Int?
+          )
 
-              private lateinit var brandSp: Spinner
-              private lateinit var modelSp: Spinner
-              private lateinit var styleSp: Spinner
-              private lateinit var fingersSp: Spinner
-              private lateinit var tierSp: Spinner
-              private lateinit var manualBox: LinearLayout
-              private lateinit var inchEt: EditText
-              private lateinit var hzEt: EditText
-              private lateinit var result: TextView
-              private var lastText = ""
+          data class ActionResult(val title: String, val ok: Boolean, val message: String, val settingsAction: String? = null)
 
-              private fun label(t: String) = TextView(this).apply {
-                  text = t
-                  textSize = 14f
-                  setPadding(0, 24, 0, 4)
-              }
+          data class Profile(val name: String, val game: String, val values: List<Int>, val date: String)
 
-              private fun spinner(items: List<String>) = Spinner(this).apply {
-                  adapter = ArrayAdapter(this@SensiActivity, android.R.layout.simple_spinner_dropdown_item, items)
-              }
+          data class Source(val title: String, val url: String, val published: String?, val consulted: String?)
 
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(32, 64, 32, 48)
-                  }
-
-                  root.addView(TextView(this).apply {
-                      text = "🎯 Assistente de Sensi"
-                      textSize = 22f
-                  })
-                  root.addView(TextView(this).apply {
-                      text = "Escolha seu celular e seu estilo. O assistente calcula valores iniciais de sensibilidade para o Free Fire."
-                      textSize = 13f
-                      setPadding(0, 8, 0, 8)
-                  })
-
-                  root.addView(label("Marca"))
-                  brandSp = spinner(listOf(DETECT) + PhoneDb.brands() + listOf(MANUAL))
-                  root.addView(brandSp)
-
-                  root.addView(label("Modelo"))
-                  modelSp = spinner(listOf("-"))
-                  root.addView(modelSp)
-
-                  manualBox = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      visibility = View.GONE
-                  }
-                  inchEt = EditText(this).apply {
-                      hint = "Tamanho da tela em polegadas (ex: 6.5)"
-                      inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                  }
-                  hzEt = EditText(this).apply {
-                      hint = "Taxa de atualização em Hz (ex: 90)"
-                      inputType = InputType.TYPE_CLASS_NUMBER
-                  }
-                  tierSp = spinner(listOf("Básico", "Intermediário", "Topo de linha"))
-                  manualBox.addView(inchEt)
-                  manualBox.addView(hzEt)
-                  manualBox.addView(tierSp)
-                  root.addView(manualBox)
-
-                  root.addView(label("Estilo de jogo"))
-                  styleSp = spinner(listOf("Rush (agressivo)", "Equilibrado", "Preciso (controle / sniper)"))
-                  styleSp.setSelection(1)
-                  root.addView(styleSp)
-
-                  root.addView(label("Quantos dedos você usa?"))
-                  fingersSp = spinner(listOf("2 dedos (polegares)", "3 dedos", "4 dedos (garra)"))
-                  root.addView(fingersSp)
-
-                  root.addView(Button(this).apply {
-                      text = "⚡ Gerar sensibilidade"
-                      isAllCaps = false
-                      setOnClickListener { generate() }
-                  })
-
-                  result = TextView(this).apply {
-                      textSize = 15f
-                      setPadding(0, 24, 0, 8)
-                      setTextIsSelectable(true)
-                  }
-                  root.addView(result)
-
-                  root.addView(Button(this).apply {
-                      text = "📋 Copiar valores"
-                      isAllCaps = false
-                      setOnClickListener { copy() }
-                  })
-
-                  setContentView(ScrollView(this).apply { addView(root) })
-
-                  brandSp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                      override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                          refreshModels()
+          data class AiResult(
+              val values: Map<String, Int>, val explanation: String,
+              val sources: List<Source>, val verified: Boolean, val savedAt: String? = null
+          ) {
+              companion object {
+                  fun parse(j: org.json.JSONObject, savedAt: String? = null): AiResult {
+                      val vals = mutableMapOf<String, Int>()
+                      j.optJSONObject("values")?.let { o -> o.keys().forEach { k -> vals[k] = o.optInt(k) } }
+                      val srcs = mutableListOf<Source>()
+                      j.optJSONArray("sources")?.let { a ->
+                          for (i in 0 until a.length()) {
+                              val x = a.getJSONObject(i)
+                              srcs.add(Source(x.optString("title"), x.optString("url"),
+                                  x.optString("publishedAt").ifBlank { null }, x.optString("consultedAt").ifBlank { null }))
+                          }
                       }
-                      override fun onNothingSelected(parent: AdapterView<*>?) {}
+                      return AiResult(vals, j.optString("explanation"), srcs, j.optBoolean("verified", false), savedAt)
                   }
-                  refreshModels()
-              }
-
-              private fun setModels(items: List<String>) {
-                  modelSp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
-              }
-
-              private fun refreshModels() {
-                  val b = brandSp.selectedItem as String
-                  when (b) {
-                      DETECT -> {
-                          manualBox.visibility = View.GONE
-                          setModels(listOf("(automático)"))
-                      }
-                      MANUAL -> {
-                          manualBox.visibility = View.VISIBLE
-                          setModels(listOf("-"))
-                      }
-                      else -> {
-                          manualBox.visibility = View.GONE
-                          setModels(PhoneDb.phones.filter { it.brand == b }.map { it.model })
-                      }
-                  }
-              }
-
-              @Suppress("DEPRECATION")
-              private fun detect(): Phone {
-                  val dm = resources.displayMetrics
-                  val wi = dm.widthPixels / dm.xdpi.toDouble()
-                  val hi = dm.heightPixels / dm.ydpi.toDouble()
-                  val diag = (sqrt(wi * wi + hi * hi) * 10).roundToInt() / 10.0
-                  val hz = windowManager.defaultDisplay.refreshRate.roundToInt()
-                  val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                  val mi = ActivityManager.MemoryInfo()
-                  am.getMemoryInfo(mi)
-                  val gb = mi.totalMem / 1024.0 / 1024.0 / 1024.0
-                  val tier = if (gb < 3.5) 1 else if (gb < 7.0) 2 else 3
-                  return Phone(Build.MANUFACTURER.uppercase(), Build.MODEL, diag, hz, tier)
-              }
-
-              private fun currentPhone(): Phone? {
-                  val b = brandSp.selectedItem as String
-                  if (b == DETECT) return detect()
-                  if (b == MANUAL) {
-                      val d = inchEt.text.toString().replace(',', '.').toDoubleOrNull()
-                      val h = hzEt.text.toString().toIntOrNull()
-                      if (d == null || h == null) return null
-                      return Phone("Manual", "Aparelho informado", d, h, tierSp.selectedItemPosition + 1)
-                  }
-                  val m = modelSp.selectedItem as String
-                  return PhoneDb.phones.firstOrNull { it.brand == b && it.model == m }
-              }
-
-              private fun calc(p: Phone, style: Int, fingers: Int): List<Pair<String, Int>> {
-                  val base = when (style) {
-                      0 -> intArrayOf(95, 90, 85, 80, 70, 75)
-                      1 -> intArrayOf(85, 80, 75, 70, 60, 65)
-                      else -> intArrayOf(75, 70, 62, 55, 45, 55)
-                  }
-                  var adj = 0
-                  adj += when (p.tier) {
-                      1 -> -5
-                      3 -> 3
-                      else -> 0
-                  }
-                  adj += if (p.diag >= 6.7) 4 else if (p.diag < 6.3) -3 else 0
-                  adj += if (p.hz >= 120) 3 else if (p.hz <= 60) -3 else 0
-                  adj += when (fingers) {
-                      0 -> 5
-                      1 -> 2
-                      else -> 0
-                  }
-                  val names = listOf("Geral", "Ponto vermelho", "Mira 2x", "Mira 4x", "Mira AWM", "Olhar livre")
-                  return names.indices.map { i -> Pair(names[i], (base[i] + adj).coerceIn(1, 100)) }
-              }
-
-              private fun generate() {
-                  val p = currentPhone()
-                  if (p == null) {
-                      result.text = "Preencha o tamanho da tela (em polegadas) e os Hz."
-                      return
-                  }
-                  val vals = calc(p, styleSp.selectedItemPosition, fingersSp.selectedItemPosition)
-                  val tierName = when (p.tier) {
-                      1 -> "básico"
-                      3 -> "topo de linha"
-                      else -> "intermediário"
-                  }
-                  val sb = StringBuilder()
-                  sb.append("📱 ${p.brand} ${p.model}\n")
-                  sb.append("Tela ${p.diag} pol · ${p.hz} Hz · nível $tierName\n")
-                  sb.append("Estilo: ${styleSp.selectedItem} · ${fingersSp.selectedItem}\n\n")
-                  for ((n, v) in vals) sb.append("$n: $v\n")
-                  sb.append("\nDicas:\n")
-                  if (p.tier == 1) sb.append("• Aparelho básico: use gráficos baixos e priorize FPS estável. Sensi muito alta fica difícil de controlar.\n")
-                  if (p.hz <= 60) sb.append("• Tela de 60 Hz: a mira parece menos suave, então não exagere no Geral.\n")
-                  else sb.append("• Ative a maior taxa de atualização disponível (botão Fluidez do app).\n")
-                  sb.append("• São valores iniciais. Teste no treino e ajuste de 3 em 3 pontos.\n")
-                  sb.append("• Se a mira passa do alvo, diminua. Se não acompanha, aumente.\n")
-                  sb.append("• Digite esses valores no jogo (Configurações > Sensibilidade). O app não altera o jogo.\n")
-                  lastText = sb.toString()
-                  result.text = lastText
-              }
-
-              private fun copy() {
-                  if (lastText.isEmpty()) {
-                      result.text = "Gere a sensibilidade primeiro."
-                      return
-                  }
-                  val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                  cm.setPrimaryClip(ClipData.newPlainText("sensi", lastText))
-                  result.text = lastText + "\n✔ Copiado."
               }
           }
           EOF_7
+          mkdir -p app/src/main/java/com/otimizador/data
+          cat > app/src/main/java/com/otimizador/data/Prefs.kt <<'EOF_8'
+          package com.otimizador
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.7
+          import android.content.Context
+          import android.content.SharedPreferences
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
 
-      - name: Compilar
-        run: gradle assembleDebug --no-daemon
+          object Prefs {
+              private lateinit var sp: SharedPreferences
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Otimizador-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          
+              fun init(ctx: Context) { sp = ctx.getSharedPreferences("nitrocore", Context.MODE_PRIVATE) }
+
+              fun now(): String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
+
+              var theme: Int
+                  get() = sp.getInt("theme", 1)
+                  set(v) { sp.edit().putInt("theme", v).apply() }
+
+              var favFF: String
+                  get() = sp.getString("fav_ff", "") ?: ""
+                  set(v) { sp.edit().putString("fav_ff", v).apply() }
+
+              var gamerAuto: Boolean
+                  get() = sp.getBoolean("gamer_auto", false)
+                  set(v) { sp.edit().putBoolean("gamer_auto", v).apply() }
+
+              var aiConsent: Boolean
+                  get() = sp.getBoolean("ai_consent", false)
+                  set(v) { sp.edit().putBoolean("ai_consent", v).apply() }
+
+              var backendUrl: String
+                  get() = sp.getString("backend_url", "") ?: ""
+                  set(v) { sp.edit().putString("backend_url", v).apply() }
+
+              fun saveLastAi(json: String) {
+                  sp.edit().putString("last_ai", json).putString("last_ai_date", now()).apply()
+              }
+
+              fun lastAi(): AiResult? {
+                  val raw = sp.getString("last_ai", null) ?: return null
+                  return try { AiResult.parse(JSONObject(raw), sp.getString("last_ai_date", null)) } catch (e: Exception) { null }
+              }
+
+              fun profiles(): List<Profile> = try {
+                  val a = JSONArray(sp.getString("profiles", "[]"))
+                  (0 until a.length()).map { i ->
+                      val o = a.getJSONObject(i)
+                      val v = o.getJSONArray("values")
+                      Profile(o.getString("name"), o.getString("game"), (0 until v.length()).map { k -> v.getInt(k) }, o.getString("date"))
+                  }
+              } catch (e: Exception) { emptyList() }
+
+              fun saveProfiles(list: List<Profile>) {
+                  val a = JSONArray()
+                  list.forEach { p ->
+                      a.put(JSONObject().put("name", p.name).put("game", p.game).put("values", JSONArray(p.values)).put("date", p.date))
+                  }
+                  sp.edit().putString("profiles", a.toString()).apply()
+              }
+          }
+          EOF_8
+          mkdir -p app/src/main/java/com/otimizador/services
+          cat > app/src/main/java/com/otimizador/services/Services.kt <<'EOF_9'
+          package com.otimizador
+
+          import android.app.ActivityManager
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.hardware.display.DisplayManager
+          import android.net.ConnectivityManager
+          import android.net.Uri
+          import android.os.BatteryManager
+          import android.os.Build
+          import android.os.Environment
+          import android.os.StatFs
+          import android.provider.Settings
+          import android.view.Display
+          import org.json.JSONObject
+          import rikka.shizuku.Shizuku
+          import java.io.File
+          import java.net.HttpURLConnection
+          import java.net.URL
+          import kotlin.math.roundToInt
+          import kotlin.math.sqrt
+
+          /** Execução de comandos de shell via Shizuku (sem root). */
+          object Shell {
+              fun status(): String = try {
+                  if (!Shizuku.pingBinder()) "inativo"
+                  else if (Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) "sem permissão"
+                  else "pronto"
+              } catch (e: Throwable) { "inativo" }
+
+              fun available(): Boolean = status() == "pronto"
+
+              fun requestPermission() { try { Shizuku.requestPermission(100) } catch (e: Throwable) { } }
+
+              fun run(script: String): Pair<Boolean, String> = try {
+                  val m = Shizuku::class.java.getDeclaredMethod(
+                      "newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                
