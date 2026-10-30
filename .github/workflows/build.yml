@@ -1330,3 +1330,270 @@ jobs:
                       if (aiMsg != null) { Gap(8); Text(aiMsg ?: "", color = Gold) }
                       AnimatedVisibility(visible = aiResult != null) {
                           val r = aiResult
+                          if (r != null) Column {
+                              Gap(8)
+                              if (r.savedAt != null) Muted("Recomendação salva em ${r.savedAt}")
+                              if (r.values.isEmpty()) Text("Não foi possível confirmar recomendações recentes", color = Gold)
+                              r.values.forEach { (k, v) -> Text("$k: $v") }
+                              if (r.explanation.isNotBlank()) { Gap(6); Text(r.explanation, fontSize = 13.sp) }
+                              if (r.values.isNotEmpty()) {
+                                  Gap(6)
+                                  OutlinedButton(onClick = {
+                                      values = game.sliders.mapIndexed { i, s -> r.values[s.name]?.coerceIn(s.min, s.max) ?: values[i] }
+                                      info = "Valores da IA aplicados nos controles (sugestão para teste)."
+                                  }, modifier = Modifier.fillMaxWidth()) { Text("Aplicar nos controles") }
+                              }
+                              if (r.sources.isNotEmpty()) {
+                                  Gap(8)
+                                  Text("Fontes consultadas:", fontWeight = FontWeight.Bold)
+                                  r.sources.forEach { sc ->
+                                      Text(sc.title.ifBlank { sc.url }, fontSize = 13.sp)
+                                      Muted(sc.url)
+                                      Muted("Publicação: ${sc.published ?: "data não informada"} · Consulta: ${sc.consulted ?: "não informada"}")
+                                  }
+                              } else if (r.values.isNotEmpty()) Muted("Sem fontes: gerado pela IA sem busca. Trate como sugestão para teste.")
+                          }
+                      }
+                  }
+              }
+
+              if (showHow) {
+                  AlertDialog(onDismissRequest = { showHow = false }, title = { Text("Como configurar no jogo") },
+                      text = { Text(game.howTo + "\n\nO NitroCore não altera as configurações do jogo: copie os valores e digite manualmente.") },
+                      confirmButton = { TextButton(onClick = { showHow = false }) { Text("Entendi") } })
+              }
+              if (showLoad) {
+                  val ps = Prefs.profiles()
+                  AlertDialog(onDismissRequest = { showLoad = false }, title = { Text("Perfis salvos") },
+                      text = {
+                          Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                              if (ps.isEmpty()) Text("Nenhum perfil salvo ainda.")
+                              ps.forEach { p ->
+                                  OutlinedButton(onClick = {
+                                      val g = Game.values().firstOrNull { it.label == p.game } ?: Game.OUTROS
+                                      game = g
+                                      values = if (p.values.size == g.sliders.size) p.values else g.sliders.map { it.def }
+                                      info = "Perfil carregado: ${p.name}"
+                                      showLoad = false
+                                  }, modifier = Modifier.fillMaxWidth()) { Text("${p.name} (${p.date})", fontSize = 12.sp) }
+                              }
+                          }
+                      },
+                      confirmButton = { TextButton(onClick = { showLoad = false }) { Text("Fechar") } })
+              }
+              if (consentDialog) {
+                  AlertDialog(onDismissRequest = { consentDialog = false }, title = { Text("Enviar dados à IA?") },
+                      text = { Text("Para gerar a recomendação, o app envia ao seu backend: jogo, versão informada, marca/modelo, RAM, Hz, categoria, estilo, valores atuais e o texto que você escrever. Nada de contatos, localização ou identificadores. Você pode revogar em Ajustes.") },
+                      confirmButton = { TextButton(onClick = { Prefs.aiConsent = true; consentDialog = false; callAi(pendingSearch) }) { Text("Permitir") } },
+                      dismissButton = { TextButton(onClick = { consentDialog = false }) { Text("Agora não") } })
+              }
+          }
+          EOF_13
+          mkdir -p app/src/main/res/drawable
+          cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF_14'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+            <path android:fillColor="#04070D" android:pathData="M24,0H84A24,24 0 0 1 108,24V84A24,24 0 0 1 84,108H24A24,24 0 0 1 0,84V24A24,24 0 0 1 24,0Z"/>
+            <path android:strokeColor="#0099FF" android:strokeWidth="1.5" android:pathData="M24,2H84A22,22 0 0 1 106,24V84A22,22 0 0 1 84,106H24A22,22 0 0 1 2,84V24A22,22 0 0 1 24,2Z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M37,29h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M37,74h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M29,37v3h5v-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M74,37v3h5v-3z"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M38.5,29V21"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M38.5,79V87"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,38.5H21"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,38.5H87"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M44,29h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M44,74h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M29,44v3h5v-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M74,44v3h5v-3z"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M45.5,29V17"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M45.5,79V91"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M29,45.5H17"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M79,45.5H91"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M51,29h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M51,74h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M29,51v3h5v-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M74,51v3h5v-3z"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M52.5,29V13"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M52.5,79V95"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,52.5H13"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,52.5H95"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M58,29h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M58,74h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M29,58v3h5v-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M74,58v3h5v-3z"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M59.5,29V17"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M59.5,79V91"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M29,59.5H17"/>
+            <path android:strokeColor="#39FF14" android:strokeWidth="1" android:pathData="M79,59.5H91"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M65,29h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M65,74h3v5h-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M29,65v3h5v-3z"/>
+            <path android:fillColor="#BFC6D2" android:pathData="M74,65v3h5v-3z"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M66.5,29V21"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M66.5,79V87"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M29,66.5H21"/>
+            <path android:strokeColor="#00A0FF" android:strokeWidth="1" android:pathData="M79,66.5H87"/>
+            <path android:fillColor="#2B303B" android:strokeColor="#A7B1C0" android:strokeWidth="1.5" android:pathData="M34,34H74V74H34Z"/>
+            <path android:fillColor="#060A12" android:strokeColor="#00A0FF" android:strokeWidth="1.2" android:pathData="M43,43H65V65H43Z"/>
+            <path android:fillColor="#3300C8FF" android:pathData="M54,54m-9,0a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M56,44L46.5,55.5H52.5L50.5,64L61,51.5H55Z"/>
+          </vector>
+          EOF_14
+          mkdir -p backend
+          cat > backend/.env.example <<'EOF_15'
+          # Provedor de IA: anthropic | openai (qualquer API compatível com chat/completions)
+          AI_PROVIDER=anthropic
+          AI_API_KEY=coloque_sua_chave_aqui
+          AI_MODEL=claude-sonnet-5-5
+          # Só para AI_PROVIDER=openai com outro servidor compatível:
+          # OPENAI_BASE_URL=https://api.openai.com/v1
+          # Busca na web (Brave Search API). Sem isso, "Buscar sensi atualizada" responde que não foi possível confirmar.
+          SEARCH_API_KEY=
+          PORT=3000
+          EOF_15
+          mkdir -p backend
+          cat > backend/package.json <<'EOF_16'
+          {
+            "name": "nitrocore-backend",
+            "version": "1.0.0",
+            "type": "module",
+            "scripts": { "start": "node server.js" },
+            "dependencies": { "express": "^4.19.2" }
+          }
+          EOF_16
+          mkdir -p backend
+          cat > backend/server.js <<'EOF_17'
+          // Backend de exemplo do NitroCore. Chaves ficam SOMENTE aqui, em variáveis de ambiente.
+          import express from "express";
+
+          const { AI_PROVIDER = "anthropic", AI_API_KEY, AI_MODEL, OPENAI_BASE_URL = "https://api.openai.com/v1",
+            SEARCH_API_KEY, PORT = 3000 } = process.env;
+
+          const app = express();
+          app.use(express.json({ limit: "20kb" }));
+
+          // Limite simples: 30 requisições por hora por IP (troque por Redis em produção)
+          const hits = new Map();
+          app.use((req, res, next) => {
+            const now = Date.now();
+            const list = (hits.get(req.ip) || []).filter((t) => now - t < 3600000);
+            if (list.length >= 30) return res.status(429).json({ error: "limit" });
+            list.push(now); hits.set(req.ip, list); next();
+          });
+
+          // Provedores intercambiáveis: cada um recebe (system, user) e devolve texto.
+          const providers = {
+            async anthropic(system, user) {
+              const r = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: { "x-api-key": AI_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+                body: JSON.stringify({ model: AI_MODEL, max_tokens: 800, system, messages: [{ role: "user", content: user }] }),
+              });
+              if (!r.ok) throw new Error("provider " + r.status);
+              const j = await r.json();
+              return (j.content || []).map((c) => c.text || "").join("");
+            },
+            async openai(system, user) {
+              const r = await fetch(OPENAI_BASE_URL + "/chat/completions", {
+                method: "POST",
+                headers: { authorization: "Bearer " + AI_API_KEY, "content-type": "application/json" },
+                body: JSON.stringify({ model: AI_MODEL, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+              });
+              if (!r.ok) throw new Error("provider " + r.status);
+              const j = await r.json();
+              return j.choices?.[0]?.message?.content || "";
+            },
+          };
+
+          const BASE_RULES = `Você ajuda jogadores a ajustar sensibilidade de jogos mobile.
+          Responda SOMENTE com JSON: {"values":{"<nome do controle>":<inteiro>},"explanation":"<até 3 frases em português>"}.
+          Use exatamente os nomes e respeite min/max de "scales". Valores são sugestões para teste: nunca prometa mira automática, headshots ou ganho garantido de desempenho.`;
+
+          function parseJson(text) {
+            const m = text.match(/\{[\s\S]*\}/);
+            if (!m) throw new Error("resposta inválida");
+            return JSON.parse(m[0]);
+          }
+
+          function clean(body, values) {
+            const out = {};
+            for (const [name, sc] of Object.entries(body.scales || {})) {
+              const v = Math.round(Number(values?.[name]));
+              if (Number.isFinite(v)) out[name] = Math.min(sc.max, Math.max(sc.min, v));
+            }
+            return out;
+          }
+
+          function ready(res) {
+            if (!AI_API_KEY || !AI_MODEL || !providers[AI_PROVIDER]) {
+              res.status(503).json({ error: "IA não configurada" });
+              return false;
+            }
+            return true;
+          }
+
+          app.post("/api/sensi", async (req, res) => {
+            if (!ready(res)) return;
+            try {
+              const b = req.body || {};
+              const user = JSON.stringify({ ...b, difficulty: String(b.difficulty || "").slice(0, 300) });
+              const out = parseJson(await providers[AI_PROVIDER](BASE_RULES, user));
+              res.json({ values: clean(b, out.values), explanation: String(out.explanation || ""), sources: [], verified: false });
+            } catch (e) {
+              res.status(502).json({ error: "falha ao consultar a IA" });
+            }
+          });
+
+          async function webSearch(q) {
+            const r = await fetch("https://api.search.brave.com/res/v1/web/search?count=5&q=" + encodeURIComponent(q),
+              { headers: { "X-Subscription-Token": SEARCH_API_KEY, accept: "application/json" } });
+            if (!r.ok) throw new Error("search " + r.status);
+            const j = await r.json();
+            return (j.web?.results || []).map((x) => ({
+              title: x.title, url: x.url, publishedAt: x.page_age || null, snippet: x.description || "",
+            }));
+          }
+
+          app.post("/api/search-sensi", async (req, res) => {
+            if (!ready(res)) return;
+            const b = req.body || {};
+            const fail = (msg) => res.json({ values: {}, explanation: msg, sources: [], verified: false });
+            if (!SEARCH_API_KEY) return fail("Não foi possível confirmar recomendações recentes (busca não configurada).");
+            try {
+              const found = await webSearch(`${b.game} sensibilidade recomendada ${b.model || ""} ${new Date().getFullYear()}`);
+              if (!found.length) return fail("Não foi possível confirmar recomendações recentes.");
+              const system = BASE_RULES + `\nUse APENAS os resultados de busca fornecidos. Se eles não trouxerem valores concretos, devolva "values":{} e explique a incerteza. Se as fontes divergirem, diga isso. Não invente fontes, datas ou versões.`;
+              const user = JSON.stringify({ pedido: { ...b, difficulty: String(b.difficulty || "").slice(0, 300) }, resultados: found });
+              const out = parseJson(await providers[AI_PROVIDER](system, user));
+              const values = clean(b, out.values);
+              const consultedAt = new Date().toISOString();
+              res.json({
+                values, explanation: String(out.explanation || ""), verified: Object.keys(values).length > 0,
+                sources: found.map((f) => ({ title: f.title, url: f.url, publishedAt: f.publishedAt, consultedAt })),
+              });
+            } catch (e) {
+              fail("Não foi possível confirmar recomendações recentes.");
+            }
+          });
+
+          app.listen(PORT, () => console.log("NitroCore backend na porta " + PORT));
+          EOF_17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Compilar
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Otimizador-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
