@@ -695,4 +695,331 @@ jobs:
           }
 
           @Composable
-          fun NCard(modifier: Modifier = Modifier, border: Color? = null, content: @Compos
+          fun NCard(modifier: Modifier = Modifier, border: Color? = null, content: @Composable ColumnScope.() -> Unit) {
+              Card(
+                  modifier = modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(18.dp),
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                  border = if (border != null) BorderStroke(1.5.dp, border) else null
+              ) { Column(Modifier.padding(16.dp), content = content) }
+          }
+
+          @Composable
+          fun Title(t: String) = Text(t, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+          @Composable
+          fun Muted(t: String, modifier: Modifier = Modifier) =
+              Text(t, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier)
+
+          @Composable
+          fun Gap(h: Int = 12) = Spacer(Modifier.height(h.dp))
+
+          @Composable
+          fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+              if (selected) Button(onClick = onClick, modifier = modifier) { Text(label, fontSize = 13.sp) }
+              else OutlinedButton(onClick = onClick, modifier = modifier) { Text(label, fontSize = 13.sp) }
+          }
+
+          @Composable
+          fun ActionRow(icon: ImageVector, title: String, desc: String, button: String, enabled: Boolean = true, onClick: () -> Unit) {
+              NCard {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                      Icon(icon, contentDescription = null, tint = Blue, modifier = Modifier.size(30.dp))
+                      Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                          Text(title, fontWeight = FontWeight.Bold)
+                          Muted(desc)
+                      }
+                      Button(onClick = onClick, enabled = enabled) { Text(button) }
+                  }
+              }
+          }
+
+          @Composable
+          fun SettingRow(title: String, subtitle: String? = null, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit = {
+              Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
+          }) {
+              Row(
+                  Modifier.fillMaxWidth().clickable(enabled = onClick != null) { onClick?.invoke() }.padding(vertical = 14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+              ) {
+                  Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                      Text(title, fontSize = 16.sp)
+                      if (subtitle != null) Muted(subtitle)
+                  }
+                  trailing()
+              }
+          }
+          EOF_10
+          mkdir -p app/src/main/java/com/otimizador/ui
+          cat > app/src/main/java/com/otimizador/ui/ConfigScreen.kt <<'EOF_11'
+          package com.otimizador
+
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.AlertDialog
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Switch
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TextButton
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          private val themeNames = listOf("Do sistema", "Escuro", "Claro")
+
+          @Composable
+          fun ConfigScreen(theme: Int, onTheme: (Int) -> Unit) {
+              val ctx = LocalContext.current
+              var sub by remember { mutableStateOf("") }
+              var themeDialog by remember { mutableStateOf(false) }
+              var consent by remember { mutableStateOf(Prefs.aiConsent) }
+              var gamer by remember { mutableStateOf(Prefs.gamerAuto) }
+              var fav by remember { mutableStateOf(Prefs.favFF) }
+              var url by remember { mutableStateOf(Prefs.backendUrl) }
+              var profiles by remember { mutableStateOf(Prefs.profiles()) }
+
+              Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  if (sub.isNotEmpty()) {
+                      TextButton(onClick = { sub = "" }) { Text("← Voltar") }
+                  } else {
+                      Text("Ajustes", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                  }
+
+                  when (sub) {
+                      "" -> {
+                          SettingRow("Tema", themeNames[theme.coerceIn(0, 2)], { themeDialog = true })
+                          SettingRow("Idioma", "Português (Brasil). Em breve: outros idiomas.")
+                          SettingRow("Notificações", "Em breve", trailing = { Switch(checked = false, onCheckedChange = null, enabled = false) })
+                          SettingRow("Otimização automática", "Em breve", trailing = { Switch(checked = false, onCheckedChange = null, enabled = false) })
+                          SettingRow("Modo gamer", "Ao abrir o Free Fire, otimiza antes (usa só ações disponíveis).",
+                              trailing = { Switch(checked = gamer, onCheckedChange = { gamer = it; Prefs.gamerAuto = it }) })
+                          SettingRow("Abertura do Free Fire", "Versão favorita: " + when (fav) {
+                              "com.dts.freefireth" -> "Normal"; "com.dts.freefiremax" -> "MAX"; else -> "não definida" }, { sub = "ff" })
+                          SettingRow("Assistente de IA", if (url.isBlank()) "Ainda não configurado" else "Backend configurado", { sub = "ia" })
+                          SettingRow("Perfis de sensibilidade salvos", "${profiles.size} perfil(is)", { profiles = Prefs.profiles(); sub = "perfis" })
+                          SettingRow("Privacidade e consentimento", "Envio de dados à IA: " + (if (consent) "permitido" else "não permitido"), { sub = "priv" })
+                          SettingRow("Sobre o aplicativo", null, { sub = "sobre" })
+                          SettingRow("Política de privacidade", "Texto de exemplo", { sub = "politica" })
+                          SettingRow("Termos de uso", "Texto de exemplo", { sub = "termos" })
+                      }
+                      "ff" -> {
+                          Text("Versão favorita do Free Fire", fontWeight = FontWeight.Bold)
+                          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Choice("Normal", fav == "com.dts.freefireth", Modifier.weight(1f)) { fav = "com.dts.freefireth"; Prefs.favFF = fav }
+                              Choice("MAX", fav == "com.dts.freefiremax", Modifier.weight(1f)) { fav = "com.dts.freefiremax"; Prefs.favFF = fav }
+                          }
+                          Muted("A favorita já vem selecionada ao tocar em Abrir Free Fire.")
+                      }
+                      "ia" -> {
+                          Text("Assistente de IA", fontWeight = FontWeight.Bold)
+                          Muted("Endereço (HTTPS) do seu backend. O provedor de IA (Claude, OpenAI etc.) é escolhido no servidor, por variáveis de ambiente. Nenhuma chave fica no app.")
+                          OutlinedTextField(url, { url = it; Prefs.backendUrl = it.trim() }, label = { Text("URL do backend") },
+                              modifier = Modifier.fillMaxWidth(), singleLine = true)
+                          SettingRow("Permitir envio de dados à IA", "Necessário para usar Sensi com IA",
+                              trailing = { Switch(checked = consent, onCheckedChange = { consent = it; Prefs.aiConsent = it }) })
+                      }
+                      "perfis" -> {
+                          Text("Perfis salvos", fontWeight = FontWeight.Bold)
+                          if (profiles.isEmpty()) Muted("Nenhum perfil salvo ainda. Salve um na aba Sensibilidade.")
+                          profiles.forEachIndexed { idx, p ->
+                              NCard {
+                                  Text(p.name, fontWeight = FontWeight.Bold)
+                                  Muted("Salvo em ${p.date}")
+                                  val g = Game.values().firstOrNull { it.label == p.game }
+                                  Text(if (g != null && g.sliders.size == p.values.size) g.sliders.mapIndexed { i, s -> "${s.name}: ${p.values[i]}" }.joinToString("\n") else p.values.joinToString(", "), fontSize = 13.sp)
+                                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      OutlinedButton(onClick = {
+                                          (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                              .setPrimaryClip(ClipData.newPlainText("perfil", p.name + "\n" + p.values.joinToString(", ")))
+                                      }) { Text("Copiar") }
+                                      OutlinedButton(onClick = {
+                                          val l = profiles.toMutableList(); l.removeAt(idx); Prefs.saveProfiles(l); profiles = l
+                                      }) { Text("Excluir") }
+                                  }
+                              }
+                          }
+                      }
+                      "priv" -> {
+                          Text("Privacidade e consentimento", fontWeight = FontWeight.Bold)
+                          Muted("O NitroCore só envia dados à IA se você permitir. Dados enviados: jogo, versão informada, marca/modelo, RAM, taxa de atualização, categoria, estilo, valores atuais e o texto que você digitar. Não enviamos contatos, localização, fotos nem identificadores do aparelho. Perfis e preferências ficam apenas neste aparelho.")
+                          SettingRow("Permitir envio de dados à IA", null,
+                              trailing = { Switch(checked = consent, onCheckedChange = { consent = it; Prefs.aiConsent = it }) })
+                      }
+                      "sobre" -> {
+                          val v = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "?" }
+                          Text("NitroCore", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                          Text("Versão do app: $v")
+                          Gap(8)
+                          Text("Funciona de verdade", fontWeight = FontWeight.Bold)
+                          Muted("Status do aparelho, abertura do Free Fire, cálculo local de sensibilidade, perfis salvos, tema.")
+                          Text("Exige configuração", fontWeight = FontWeight.Bold)
+                          Muted("Limpar RAM, cache e acelerar jogos (Shizuku ativo). Sensi com IA e busca (backend próprio).")
+                          Text("Demonstração / em breve", fontWeight = FontWeight.Bold)
+                          Muted("Notificações, otimização automática, outros idiomas, textos legais.")
+                      }
+                      "politica" -> {
+                          Text("Política de privacidade", fontWeight = FontWeight.Bold)
+                          Muted("TEXTO DE EXEMPLO — substitua por uma política real antes de publicar o app. O app guarda preferências e perfis apenas no aparelho e só envia dados à IA mediante consentimento.")
+                      }
+                      "termos" -> {
+                          Text("Termos de uso", fontWeight = FontWeight.Bold)
+                          Muted("TEXTO DE EXEMPLO — substitua por termos reais antes de publicar. O app não é afiliado à Garena nem a outros desenvolvedores de jogos. Sensibilidades são sugestões e não garantem resultado.")
+                      }
+                  }
+              }
+
+              if (themeDialog) {
+                  AlertDialog(onDismissRequest = { themeDialog = false }, title = { Text("Tema") },
+                      text = {
+                          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              themeNames.forEachIndexed { i, n -> Choice(n, theme == i, Modifier.fillMaxWidth()) { onTheme(i); themeDialog = false } }
+                          }
+                      },
+                      confirmButton = { TextButton(onClick = { themeDialog = false }) { Text("Fechar") } })
+              }
+          }
+          EOF_11
+          mkdir -p app/src/main/java/com/otimizador/ui
+          cat > app/src/main/java/com/otimizador/ui/OtimizarScreen.kt <<'EOF_12'
+          package com.otimizador
+
+          import android.os.Handler
+          import android.os.Looper
+          import androidx.compose.animation.AnimatedVisibility
+          import androidx.compose.foundation.Image
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.CheckCircle
+          import androidx.compose.material.icons.filled.Delete
+          import androidx.compose.material.icons.filled.Favorite
+          import androidx.compose.material.icons.filled.PlayArrow
+          import androidx.compose.material.icons.filled.Refresh
+          import androidx.compose.material.icons.filled.Search
+          import androidx.compose.material.icons.filled.Warning
+          import androidx.compose.material.icons.filled.Build
+          import androidx.compose.material3.AlertDialog
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.CircularProgressIndicator
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TextButton
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.LaunchedEffect
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.res.painterResource
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import java.util.Locale
+          import kotlin.concurrent.thread
+
+          @Composable
+          fun OtimizarScreen() {
+              val ctx = LocalContext.current
+              val tick = AppState.tick.value
+              var status by remember { mutableStateOf(Device.status(ctx)) }
+              var running by remember { mutableStateOf<String?>(null) }
+              var results by remember { mutableStateOf<List<ActionResult>>(emptyList()) }
+              var confirmFiles by remember { mutableStateOf(false) }
+              var ffDialog by remember { mutableStateOf(false) }
+              var ffMsg by remember { mutableStateOf<String?>(null) }
+              var sel by remember { mutableStateOf(if (Prefs.favFF.isNotBlank()) Prefs.favFF else "com.dts.freefireth") }
+              var fav by remember { mutableStateOf(Prefs.favFF) }
+              val shizuku = Shell.status()
+
+              LaunchedEffect(tick) { status = Device.status(ctx) }
+
+              fun runAction(name: String, block: () -> List<ActionResult>) {
+                  if (running != null) return
+                  running = name
+                  thread {
+                      val r = try { block() } catch (e: Throwable) { listOf(ActionResult(name, false, "Erro: ${e.message}")) }
+                      results = r
+                      status = Device.status(ctx)
+                      running = null
+                  }
+              }
+
+              fun launch(optimize: Boolean) {
+                  if (!Games.installed(ctx, sel)) {
+                      ffMsg = "Essa versão do Free Fire não está instalada neste aparelho."
+                      return
+                  }
+                  ffMsg = null
+                  if (optimize) {
+                      ffDialog = false
+                      running = "Otimizando antes de jogar"
+                      thread {
+                          val r = try { Optimizer.beforeGame(ctx) } catch (e: Throwable) { emptyList() }
+                          results = r
+                          running = null
+                          Handler(Looper.getMainLooper()).post { Games.launch(ctx, sel) }
+                      }
+                  } else {
+                      ffDialog = false
+                      Games.launch(ctx, sel)
+                  }
+              }
+
+              Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                      Image(painterResource(R.drawable.ic_launcher), contentDescription = null, modifier = Modifier.size(52.dp))
+                      Column(Modifier.padding(start = 12.dp)) {
+                          Text("NitroCore", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                          Muted("Shizuku: $shizuku")
+                      }
+                  }
+                  if (shizuku == "sem permissão") {
+                      Button(onClick = { Shell.requestPermission() }, modifier = Modifier.fillMaxWidth()) { Text("Conceder permissão do Shizuku") }
+                  }
+                  if (shizuku == "inativo") {
+                      Muted("Shizuku inativo: ações avançadas ficam indisponíveis. Abra o app Shizuku e inicie o serviço.")
+                  }
+
+                  NCard(border = Blue) {
+                      Title("Status do aparelho")
+                      Gap(8)
+                      Text("RAM: ${status.ramUsedMb} / ${status.ramTotalMb} MB")
+                      Text("Armazenamento: ${String.format(Locale.US, "%.1f", status.storageUsedGb)} / ${String.format(Locale.US, "%.0f", status.storageTotalGb)} GB")
+                      Text("Temperatura: " + (status.tempC?.let { "${String.format(Locale.US, "%.1f", it)} °C" } ?: "Indisponível"))
+                      Text("Bateria: " + (status.batteryPct?.let { "$it%" } ?: "Indisponível"))
+                  }
+
+                  NCard(border = Gold) {
+                      Title("Free Fire")
+ 
