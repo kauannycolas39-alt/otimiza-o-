@@ -89,6 +89,8 @@ jobs:
                       </intent-filter>
                   </activity>
 
+                  <activity android:name=".SensiActivity" android:exported="false" />
+
                   <provider
                       android:name="rikka.shizuku.ShizukuProvider"
                       android:authorities="${applicationId}.shizuku"
@@ -163,6 +165,7 @@ jobs:
           import android.content.ClipData
           import android.content.ClipboardManager
           import android.content.Context
+          import android.content.Intent
           import android.content.pm.PackageManager
           import android.os.Bundle
           import android.widget.Button
@@ -287,6 +290,7 @@ jobs:
                   btn("🖱️ Mouse (GG Mouse Pro): ponteiro rápido") { run("Mouse", mouse(7)) }
                   btn("🖱️ Mouse: ponteiro padrão") { run("Mouse", mouse(0)) }
                   btn("♻️ Restaurar padrão") { run("Restaurar", restaurar()) }
+                  btn("🎯 Assistente de Sensi (escolha seu celular)") { startActivity(Intent(this, SensiActivity::class.java)) }
                   btn("📋 Copiar scripts (p/ Brevent)") {
                       val txt = fluidez() + "\n" + modoJogo("com.dts.freefiremax")
                       val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -343,16 +347,60 @@ jobs:
               }
           }
           EOF_6
+          mkdir -p app/src/main/java/com/otimizador
+          cat > app/src/main/java/com/otimizador/SensiActivity.kt <<'EOF_7'
+          package com.otimizador
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.7
+          import android.app.Activity
+          import android.app.ActivityManager
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import android.os.Build
+          import android.os.Bundle
+          import android.text.InputType
+          import android.view.View
+          import android.widget.AdapterView
+          import android.widget.ArrayAdapter
+          import android.widget.Button
+          import android.widget.EditText
+          import android.widget.LinearLayout
+          import android.widget.ScrollView
+          import android.widget.Spinner
+          import android.widget.TextView
+          import kotlin.math.roundToInt
+          import kotlin.math.sqrt
 
-      - name: Compilar
-        run: gradle assembleDebug --no-daemon
+          data class Phone(val brand: String, val model: String, val diag: Double, val hz: Int, val tier: Int)
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Otimizador-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          
+          object PhoneDb {
+              // tier: 1 = básico, 2 = intermediário, 3 = topo de linha (valores aproximados)
+              val phones = listOf(
+                  Phone("Motorola", "Moto G04", 6.56, 90, 1),
+                  Phone("Motorola", "Moto G24", 6.56, 90, 1),
+                  Phone("Motorola", "Moto G34 5G", 6.5, 120, 2),
+                  Phone("Motorola", "Moto G54 5G", 6.5, 120, 2),
+                  Phone("Motorola", "Moto G84 5G", 6.5, 120, 2),
+                  Phone("Motorola", "Moto G85", 6.67, 120, 2),
+                  Phone("Motorola", "Edge 40 Neo", 6.55, 144, 2),
+                  Phone("Motorola", "Edge 50 Fusion", 6.7, 120, 2),
+                  Phone("Samsung", "Galaxy A04", 6.5, 60, 1),
+                  Phone("Samsung", "Galaxy A14", 6.6, 90, 1),
+                  Phone("Samsung", "Galaxy A15", 6.5, 90, 1),
+                  Phone("Samsung", "Galaxy A25 5G", 6.5, 120, 2),
+                  Phone("Samsung", "Galaxy A35 5G", 6.6, 120, 2),
+                  Phone("Samsung", "Galaxy A54 5G", 6.4, 120, 2),
+                  Phone("Samsung", "Galaxy A55 5G", 6.6, 120, 2),
+                  Phone("Samsung", "Galaxy M14", 6.6, 90, 1),
+                  Phone("Samsung", "Galaxy S23", 6.1, 120, 3),
+                  Phone("Samsung", "Galaxy S24", 6.2, 120, 3),
+                  Phone("Samsung", "Galaxy S24 Ultra", 6.8, 120, 3),
+                  Phone("Xiaomi / Redmi / Poco", "Redmi 12C", 6.71, 60, 1),
+                  Phone("Xiaomi / Redmi / Poco", "Redmi 12", 6.79, 90, 1),
+                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 12", 6.67, 120, 2),
+                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 13", 6.67, 120, 2),
+                  Phone("Xiaomi / Redmi / Poco", "Redmi Note 13 Pro", 6.67, 120, 2),
+                  Phone("Xiaomi / Redmi / Poco", "Poco C65", 6.74, 90, 1),
+                  Phone("Xiaomi / Redmi / Poco", "Poco M6", 6.79, 90, 1),
+                  Phone("Xiaomi / Redmi / Poco", "Poco X5 Pro", 6.67, 120, 2),
+                  
