@@ -71,7 +71,6 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF_4'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
               <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
               <application
@@ -367,8 +366,7 @@ jobs:
           import android.widget.LinearLayout
           import android.widget.ScrollView
           import android.widget.Spinner
-          import android.widget.TextView
-          import kotlin.math.roundToInt
+          import android.widget.TextView        import kotlin.math.roundToInt
           import kotlin.math.sqrt
 
           data class Phone(val brand: String, val model: String, val diag: Double, val hz: Int, val tier: Int)
@@ -403,5 +401,252 @@ jobs:
                   Phone("Xiaomi / Redmi / Poco", "Poco C65", 6.74, 90, 1),
                   Phone("Xiaomi / Redmi / Poco", "Poco M6", 6.79, 90, 1),
                   Phone("Xiaomi / Redmi / Poco", "Poco X5 Pro", 6.67, 120, 2),
-                            name: Otimizador-APK
+                  Phone("Xiaomi / Redmi / Poco", "Poco X6 Pro", 6.67, 120, 3),
+                  Phone("Xiaomi / Redmi / Poco", "Poco F5", 6.67, 120, 3),
+                  Phone("Infinix", "Hot 40i", 6.56, 90, 1),
+                  Phone("Infinix", "Hot 40 Pro", 6.78, 120, 1),
+                  Phone("Infinix", "Note 40", 6.78, 120, 2),
+                  Phone("Realme", "C55", 6.72, 90, 1),
+                  Phone("Realme", "C67", 6.72, 90, 1),
+                  Phone("Realme", "12 Pro", 6.7, 120, 2),
+                  Phone("Gamer", "ASUS ROG Phone 8", 6.78, 165, 3),
+                  Phone("Gamer", "Red Magic 9 Pro", 6.8, 120, 3)
+              )
+
+              fun brands(): List<String> = phones.map { it.brand }.distinct()
+          }
+
+          class SensiActivity : Activity() {
+
+              private val DETECT = "📱 Meu aparelho (detectar)"
+              private val MANUAL = "✏️ Outro (digitar dados)"
+
+              private lateinit var brandSp: Spinner
+              private lateinit var modelSp: Spinner
+              private lateinit var styleSp: Spinner
+              private lateinit var fingersSp: Spinner
+              private lateinit var tierSp: Spinner
+              private lateinit var manualBox: LinearLayout
+              private lateinit var inchEt: EditText
+              private lateinit var hzEt: EditText
+              private lateinit var result: TextView
+              private var lastText = ""
+
+              private fun label(t: String) = TextView(this).apply {
+                  text = t
+                  textSize = 14f
+                  setPadding(0, 24, 0, 4)
+              }
+
+              private fun spinner(items: List<String>) = Spinner(this).apply {
+                  adapter = ArrayAdapter(this@SensiActivity, android.R.layout.simple_spinner_dropdown_item, items)
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val root = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(32, 64, 32, 48)
+                  }
+
+                  root.addView(TextView(this).apply {
+                      text = "🎯 Assistente de Sensi"
+                      textSize = 22f
+                  })
+                  root.addView(TextView(this).apply {
+                      text = "Escolha seu celular e seu estilo. O assistente calcula valores iniciais de sensibilidade para o Free Fire."
+                      textSize = 13f
+                      setPadding(0, 8, 0, 8)
+                  })
+
+                  root.addView(label("Marca"))
+                  brandSp = spinner(listOf(DETECT) + PhoneDb.brands() + listOf(MANUAL))
+                  root.addView(brandSp)
+
+                  root.addView(label("Modelo"))
+                  modelSp = spinner(listOf("-"))
+                  root.addView(modelSp)
+
+                  manualBox = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      visibility = View.GONE
+                  }
+                  inchEt = EditText(this).apply {
+                      hint = "Tamanho da tela em polegadas (ex: 6.5)"
+                      inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                  }
+                  hzEt = EditText(this).apply {
+                      hint = "Taxa de atualização em Hz (ex: 90)"
+                      inputType = InputType.TYPE_CLASS_NUMBER
+                  }
+                  tierSp = spinner(listOf("Básico", "Intermediário", "Topo de linha"))
+                  manualBox.addView(inchEt)
+                  manualBox.addView(hzEt)
+                  manualBox.addView(tierSp)
+                  root.addView(manualBox)
+
+                  root.addView(label("Estilo de jogo"))
+                  styleSp = spinner(listOf("Rush (agressivo)", "Equilibrado", "Preciso (controle / sniper)"))
+                  styleSp.setSelection(1)
+                  root.addView(styleSp)
+
+                  root.addView(label("Quantos dedos você usa?"))
+                  fingersSp = spinner(listOf("2 dedos (polegares)", "3 dedos", "4 dedos (garra)"))
+                  root.addView(fingersSp)
+
+                  root.addView(Button(this).apply {
+                      text = "⚡ Gerar sensibilidade"
+                      isAllCaps = false
+                      setOnClickListener { generate() }
+                  })
+
+                  result = TextView(this).apply {
+                      textSize = 15f
+                      setPadding(0, 24, 0, 8)
+                      setTextIsSelectable(true)
+                  }
+                  root.addView(result)
+
+                  root.addView(Button(this).apply {
+                      text = "📋 Copiar valores"
+                      isAllCaps = false
+                      setOnClickListener { copy() }
+                  })
+
+                  setContentView(ScrollView(this).apply { addView(root) })
+
+                  brandSp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                      override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                          refreshModels()
+                      }
+                      override fun onNothingSelected(parent: AdapterView<*>?) {}
+                  }
+                  refreshModels()
+              }
+
+              private fun setModels(items: List<String>) {
+                  modelSp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
+              }
+
+              private fun refreshModels() {
+                  val b = brandSp.selectedItem as String
+                  when (b) {
+                      DETECT -> {
+                          manualBox.visibility = View.GONE
+                          setModels(listOf("(automático)"))
+                      }
+                      MANUAL -> {
+                          manualBox.visibility = View.VISIBLE
+                          setModels(listOf("-"))
+                      }
+                      else -> {
+                          manualBox.visibility = View.GONE
+                          setModels(PhoneDb.phones.filter { it.brand == b }.map { it.model })
+                      }
+                  }
+              }
+
+              @Suppress("DEPRECATION")
+              private fun detect(): Phone {
+                  val dm = resources.displayMetrics
+                  val wi = dm.widthPixels / dm.xdpi.toDouble()
+                  val hi = dm.heightPixels / dm.ydpi.toDouble()
+                  val diag = (sqrt(wi * wi + hi * hi) * 10).roundToInt() / 10.0
+                  val hz = windowManager.defaultDisplay.refreshRate.roundToInt()
+                  val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                  val mi = ActivityManager.MemoryInfo()
+                  am.getMemoryInfo(mi)
+                  val gb = mi.totalMem / 1024.0 / 1024.0 / 1024.0
+                  val tier = if (gb < 3.5) 1 else if (gb < 7.0) 2 else 3
+                  return Phone(Build.MANUFACTURER.uppercase(), Build.MODEL, diag, hz, tier)
+              }
+
+              private fun currentPhone(): Phone? {
+                  val b = brandSp.selectedItem as String
+                  if (b == DETECT) return detect()
+                  if (b == MANUAL) {
+                      val d = inchEt.text.toString().replace(',', '.').toDoubleOrNull()
+                      val h = hzEt.text.toString().toIntOrNull()
+                      if (d == null || h == null) return null
+                      return Phone("Manual", "Aparelho informado", d, h, tierSp.selectedItemPosition + 1)
+                  }
+                  val m = modelSp.selectedItem as String
+                  return PhoneDb.phones.firstOrNull { it.brand == b && it.model == m }
+              }
+
+              private fun calc(p: Phone, style: Int, fingers: Int): List<Pair<String, Int>> {
+                  val base = when (style) {
+                      0 -> intArrayOf(95, 90, 85, 80, 70, 75)
+                      1 -> intArrayOf(85, 80, 75, 70, 60, 65)
+                      else -> intArrayOf(75, 70, 62, 55, 45, 55)
+                  }
+                  var adj = 0
+                  adj += when (p.tier) {
+                      1 -> -5
+                      3 -> 3
+                      else -> 0
+                  }
+                  adj += if (p.diag >= 6.7) 4 else if (p.diag < 6.3) -3 else 0
+                  adj += if (p.hz >= 120) 3 else if (p.hz <= 60) -3 else 0
+                  adj += when (fingers) {
+                      0 -> 5
+                      1 -> 2
+                      else -> 0
+                  }
+                  val names = listOf("Geral", "Ponto vermelho", "Mira 2x", "Mira 4x", "Mira AWM", "Olhar livre")
+                  return names.indices.map { i -> Pair(names[i], (base[i] + adj).coerceIn(1, 100)) }
+              }
+
+              private fun generate() {
+                  val p = currentPhone()
+                  if (p == null) {
+                      result.text = "Preencha o tamanho da tela (em polegadas) e os Hz."
+                      return
+                  }
+                  val vals = calc(p, styleSp.selectedItemPosition, fingersSp.selectedItemPosition)
+                  val tierName = when (p.tier) {
+                      1 -> "básico"
+                      3 -> "topo de linha"
+                      else -> "intermediário"
+                  }
+                  val sb = StringBuilder()
+                  sb.append("📱 ${p.brand} ${p.model}\n")
+                  sb.append("Tela ${p.diag} pol · ${p.hz} Hz · nível $tierName\n")
+                  sb.append("Estilo: ${styleSp.selectedItem} · ${fingersSp.selectedItem}\n\n")
+                  for ((n, v) in vals) sb.append("$n: $v\n")
+                  sb.append("\nDicas:\n")
+                  if (p.tier == 1) sb.append("• Aparelho básico: use gráficos baixos e priorize FPS estável. Sensi muito alta fica difícil de controlar.\n")
+                  if (p.hz <= 60) sb.append("• Tela de 60 Hz: a mira parece menos suave, então não exagere no Geral.\n")
+                  else sb.append("• Ative a maior taxa de atualização disponível (botão Fluidez do app).\n")
+                  sb.append("• São valores iniciais. Teste no treino e ajuste de 3 em 3 pontos.\n")
+                  sb.append("• Se a mira passa do alvo, diminua. Se não acompanha, aumente.\n")
+                  sb.append("• Digite esses valores no jogo (Configurações > Sensibilidade). O app não altera o jogo.\n")
+                  lastText = sb.toString()
+                  result.text = lastText
+              }
+
+              private fun copy() {
+                  if (lastText.isEmpty()) {
+                      result.text = "Gere a sensibilidade primeiro."
+                      return
+                  }
+                  val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                  cm.setPrimaryClip(ClipData.newPlainText("sensi", lastText))
+                  result.text = lastText + "\n✔ Copiado."
+              }
+          }
+          EOF_7
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Compilar
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Otimizador-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+          
