@@ -1022,4 +1022,311 @@ jobs:
 
                   NCard(border = Gold) {
                       Title("Free Fire")
- 
+                       Muted("Abra o jogo, com otimização opcional antes.")
+                      Gap(8)
+                      Button(
+                          onClick = { ffMsg = null; ffDialog = true },
+                          modifier = Modifier.fillMaxWidth().height(54.dp),
+                          colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color.Black)
+                      ) { Icon(Icons.Default.PlayArrow, contentDescription = null); Text("Abrir Free Fire", fontWeight = FontWeight.Bold) }
+                  }
+
+                  Button(
+                      onClick = { runAction("Otimização completa") { Optimizer.full(ctx) } },
+                      enabled = running == null,
+                      modifier = Modifier.fillMaxWidth().height(58.dp),
+                      colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Color.Black)
+                  ) { Text("Otimizar agora", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+
+                  if (running != null) {
+                      NCard {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              CircularProgressIndicator(Modifier.size(28.dp))
+                              Text("  ${running}...")
+                          }
+                      }
+                  }
+
+                  ActionRow(Icons.Default.Refresh, "Limpar RAM", "Encerra apps em segundo plano (requer Shizuku).", "Executar", running == null) {
+                      runAction("Limpar RAM") { listOf(Optimizer.clearRam(ctx)) }
+                  }
+                  ActionRow(Icons.Default.Delete, "Limpar cache", "Libera o cache dos apps (requer Shizuku).", "Executar", running == null) {
+                      runAction("Limpar cache") { listOf(Optimizer.clearCache(ctx)) }
+                  }
+                  ActionRow(Icons.Default.PlayArrow, "Acelerar jogos", "Modo desempenho para o Free Fire (Android 12+, Shizuku).", "Executar", running == null) {
+                      runAction("Acelerar jogos") { listOf(Optimizer.speedGames(ctx)) }
+                  }
+                  ActionRow(Icons.Default.Favorite, "Economizar bateria", "Abre as configurações do sistema.", "Abrir", running == null) {
+                      results = listOf(Optimizer.battery())
+                  }
+                  ActionRow(Icons.Default.Search, "Limpar arquivos desnecessários", "Apaga o cache temporário do próprio app, com confirmação.", "Limpar", running == null) {
+                      confirmFiles = true
+                  }
+                  ActionRow(Icons.Default.Build, "Otimização completa", "RAM + cache + jogos, só o que estiver disponível.", "Executar", running == null) {
+                      runAction("Otimização completa") { Optimizer.full(ctx) }
+                  }
+
+                  AnimatedVisibility(visible = results.isNotEmpty()) {
+                      NCard(border = Blue) {
+                          Title("Resultado")
+                          Muted("Resultados reais desta execução. Nada nesta tela é simulado.")
+                          results.forEach { r ->
+                              Gap(10)
+                              Row(verticalAlignment = Alignment.Top) {
+                                  Icon(if (r.ok) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null,
+                                      tint = if (r.ok) Green else Gold, modifier = Modifier.size(22.dp))
+                                  Column(Modifier.padding(start = 8.dp)) {
+                                      Text(r.title, fontWeight = FontWeight.Bold)
+                                      Text(r.message, fontSize = 13.sp)
+                                      if (r.settingsAction != null) {
+                                          TextButton(onClick = { Games.openSettings(ctx, r.settingsAction) }) { Text("Abrir configurações") }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+
+              if (confirmFiles) {
+                  AlertDialog(
+                      onDismissRequest = { confirmFiles = false },
+                      title = { Text("Apagar arquivos temporários?") },
+                      text = { Text("Será apagado apenas o cache temporário do NitroCore. Nenhum arquivo seu ou de outros apps será excluído.") },
+                      confirmButton = {
+                          TextButton(onClick = { confirmFiles = false; runAction("Limpar arquivos") { listOf(Optimizer.cleanOwnCache(ctx)) } }) { Text("Apagar") }
+                      },
+                      dismissButton = { TextButton(onClick = { confirmFiles = false }) { Text("Cancelar") } }
+                  )
+              }
+
+              if (ffDialog) {
+                  val pkgs = listOf("com.dts.freefireth" to "Free Fire Normal", "com.dts.freefiremax" to "Free Fire MAX")
+                  AlertDialog(
+                      onDismissRequest = { ffDialog = false },
+                      title = { Text("Abrir Free Fire") },
+                      confirmButton = {},
+                      text = {
+                          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              pkgs.forEach { (pkg, name) ->
+                                  val inst = Games.installed(ctx, pkg)
+                                  Row(verticalAlignment = Alignment.CenterVertically) {
+                                      Choice("$name · " + (if (inst) "instalado" else "não instalado"), sel == pkg, Modifier.weight(1f)) { sel = pkg; ffMsg = null }
+                                      TextButton(onClick = { Prefs.favFF = pkg; fav = pkg }) { Text(if (fav == pkg) "★" else "☆", fontSize = 20.sp) }
+                                  }
+                              }
+                              if (ffMsg != null) {
+                                  Text(ffMsg ?: "", color = Gold)
+                                  OutlinedButton(onClick = { Games.openStore(ctx, sel) }, modifier = Modifier.fillMaxWidth()) { Text("Abrir na Play Store") }
+                              }
+                              Button(onClick = { launch(Prefs.gamerAuto) }, modifier = Modifier.fillMaxWidth()) { Text("Abrir agora") }
+                              OutlinedButton(onClick = { launch(true) }, modifier = Modifier.fillMaxWidth()) { Text("Otimizar antes de jogar") }
+                              TextButton(onClick = { ffDialog = false }) { Text("Cancelar") }
+                              Muted("★ marca a versão favorita. O app não altera arquivos do jogo.")
+                          }
+                      }
+                  )
+              }
+          }
+          EOF_12
+          mkdir -p app/src/main/java/com/otimizador/ui
+          cat > app/src/main/java/com/otimizador/ui/SensiScreen.kt <<'EOF_13'
+          package com.otimizador
+
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import androidx.compose.animation.AnimatedVisibility
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.AlertDialog
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.CircularProgressIndicator
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Slider
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TextButton
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import org.json.JSONObject
+          import java.util.Locale
+          import kotlin.concurrent.thread
+          import kotlin.math.roundToInt
+
+          private val styleNames = listOf("Precisão", "Velocidade", "Equilibrado")
+          private val tierNames = listOf("Básico", "Intermediário", "Avançado")
+
+          @Composable
+          fun SensiScreen() {
+              val ctx = LocalContext.current
+              val det = remember { Device.detect(ctx) }
+              var game by remember { mutableStateOf(Game.FF) }
+              var brand by remember { mutableStateOf(det.brand) }
+              var model by remember { mutableStateOf(det.model) }
+              var ram by remember { mutableStateOf(String.format(Locale.US, "%.1f", det.ramGb)) }
+              var hz by remember { mutableStateOf(det.hz.toString()) }
+              var tier by remember { mutableStateOf(det.tier) }
+              var style by remember { mutableStateOf(2) }
+              var fb by remember { mutableStateOf(0) }
+              var fbLabel by remember { mutableStateOf("") }
+              var values by remember { mutableStateOf(Game.FF.sliders.map { it.def }) }
+              var info by remember { mutableStateOf<String?>(null) }
+              var showHow by remember { mutableStateOf(false) }
+              var showLoad by remember { mutableStateOf(false) }
+              var gameVersion by remember { mutableStateOf("") }
+              var difficulty by remember { mutableStateOf("") }
+              var aiBusy by remember { mutableStateOf(false) }
+              var aiMsg by remember { mutableStateOf<String?>(null) }
+              var aiResult by remember { mutableStateOf<AiResult?>(null) }
+              var consentDialog by remember { mutableStateOf(false) }
+              var pendingSearch by remember { mutableStateOf(false) }
+
+              fun dev() = DeviceProfile(brand, model, ram.replace(',', '.').toDoubleOrNull() ?: det.ramGb,
+                  hz.toIntOrNull() ?: det.hz, tier, det.diag)
+
+              fun pick(g: Game) { game = g; values = g.sliders.map { it.def }; fb = 0; fbLabel = ""; info = null }
+
+              fun asText(): String = game.label + "\n" + game.sliders.mapIndexed { i, s -> "${s.name}: ${values[i]}" }.joinToString("\n")
+
+              fun callAi(search: Boolean) {
+                  if (Prefs.backendUrl.isBlank()) { aiMsg = "Assistente de IA ainda não configurado"; return }
+                  if (!Prefs.aiConsent) { pendingSearch = search; consentDialog = true; return }
+                  if (!Net.online(ctx)) {
+                      aiResult = Prefs.lastAi()
+                      aiMsg = if (aiResult != null) "Sem internet. Mostrando a última recomendação salva." else "Sem internet e sem recomendação salva."
+                      return
+                  }
+                  aiBusy = true
+                  aiMsg = null
+                  val d = dev()
+                  val cur = JSONObject()
+                  val scales = JSONObject()
+                  game.sliders.forEachIndexed { i, s ->
+                      cur.put(s.name, values[i])
+                      scales.put(s.name, JSONObject().put("min", s.min).put("max", s.max))
+                  }
+                  val payload = JSONObject()
+                      .put("game", game.label).put("gameVersion", gameVersion.take(30))
+                      .put("brand", d.brand).put("model", d.model).put("ramGb", d.ramGb)
+                      .put("refreshHz", d.hz).put("category", tierNames[tier - 1])
+                      .put("style", styleNames[style]).put("difficulty", difficulty.take(300))
+                      .put("feedback", fbLabel).put("currentValues", cur).put("scales", scales)
+                  thread {
+                      try {
+                          val prov: AiProvider = BackendProvider(Prefs.backendUrl)
+                          val j = if (search) prov.searchSensi(payload) else prov.sensi(payload)
+                          Prefs.saveLastAi(j.toString())
+                          aiResult = AiResult.parse(j)
+                      } catch (e: AiException) {
+                          aiMsg = e.message
+                      } catch (e: Throwable) {
+                          aiMsg = "Erro de conexão com o assistente. Tente novamente."
+                          aiResult = Prefs.lastAi()
+                      }
+                      aiBusy = false
+                  }
+              }
+
+              Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                  Text("Sensibilidade", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                  NCard {
+                      Text("Aviso: estas configurações são sugestões. Teste e ajuste conforme seu dispositivo e estilo de jogo.", fontSize = 13.sp)
+                      Muted("Não há promessa de mira automática, headshots ou aumento garantido de desempenho.")
+                  }
+
+                  Title("Jogo")
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Choice("FF Normal", game == Game.FF, Modifier.weight(1f)) { pick(Game.FF) }
+                      Choice("FF MAX", game == Game.FFMAX, Modifier.weight(1f)) { pick(Game.FFMAX) }
+                      Choice("PUBG", game == Game.PUBG, Modifier.weight(1f)) { pick(Game.PUBG) }
+                  }
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Choice("CODM", game == Game.CODM, Modifier.weight(1f)) { pick(Game.CODM) }
+                      Choice("Outros", game == Game.OUTROS, Modifier.weight(1f)) { pick(Game.OUTROS) }
+                  }
+                  OutlinedTextField(gameVersion, { gameVersion = it }, label = { Text("Versão do jogo (opcional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+
+                  Title("Seu aparelho")
+                  Muted("Detectado automaticamente. Corrija se estiver errado.")
+                  OutlinedTextField(brand, { brand = it }, label = { Text("Marca") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  OutlinedTextField(model, { model = it }, label = { Text("Modelo") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      OutlinedTextField(ram, { ram = it }, label = { Text("RAM (GB)") }, modifier = Modifier.weight(1f), singleLine = true)
+                      OutlinedTextField(hz, { hz = it }, label = { Text("Hz da tela") }, modifier = Modifier.weight(1f), singleLine = true)
+                  }
+                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                      tierNames.forEachIndexed { i, n -> Choice(n, tier == i + 1, Modifier.weight(1f)) { tier = i + 1 } }
+                  }
+
+                  Title("Estilo de jogo")
+                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                      styleNames.forEachIndexed { i, n -> Choice(n, style == i, Modifier.weight(1f)) { style = i } }
+                  }
+                  Button(onClick = { fb = 0; values = SensiEngine.suggest(game, dev(), style, 0); info = "Sugestão calculada localmente a partir do seu aparelho e estilo." },
+                      modifier = Modifier.fillMaxWidth()) { Text("Sugerir pelo meu celular (cálculo local)") }
+                  if (info != null) Muted(info ?: "")
+
+                  Title("Controles — ${game.label}")
+                  game.sliders.forEachIndexed { i, s ->
+                      Text("${s.name}: ${values[i]}")
+                      Slider(
+                          value = values[i].toFloat(),
+                          onValueChange = { v -> values = values.toMutableList().also { l -> l[i] = v.roundToInt() } },
+                          valueRange = s.min.toFloat()..s.max.toFloat()
+                      )
+                  }
+
+                  Title("Como ficou?")
+                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                      Choice("Muito rápida", fbLabel == "Muito rápida", Modifier.weight(1f)) {
+                          fbLabel = "Muito rápida"; fb -= 8; values = SensiEngine.suggest(game, dev(), style, fb); info = "Reduzi a sensibilidade. Teste de novo."
+                      }
+                      Choice("Boa", fbLabel == "Boa", Modifier.weight(1f)) { fbLabel = "Boa"; info = "Ótimo! Salve a configuração." }
+                      Choice("Muito lenta", fbLabel == "Muito lenta", Modifier.weight(1f)) {
+                          fbLabel = "Muito lenta"; fb += 8; values = SensiEngine.suggest(game, dev(), style, fb); info = "Aumentei a sensibilidade. Teste de novo."
+                      }
+                  }
+
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      OutlinedButton(onClick = {
+                          (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("sensi", asText()))
+                          info = "Valores copiados."
+                      }, modifier = Modifier.weight(1f)) { Text("Copiar valores", fontSize = 12.sp) }
+                      OutlinedButton(onClick = {
+                          Prefs.saveProfiles(Prefs.profiles() + Profile("${game.label} · ${styleNames[style]}", game.label, values, Prefs.now()))
+                          info = "Configuração salva no perfil do app. Para usar no jogo, digite os valores manualmente."
+                      }, modifier = Modifier.weight(1f)) { Text("Salvar configuração", fontSize = 12.sp) }
+                  }
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      OutlinedButton(onClick = { pick(game) }, modifier = Modifier.weight(1f)) { Text("Restaurar padrão", fontSize = 12.sp) }
+                      OutlinedButton(onClick = { showHow = true }, modifier = Modifier.weight(1f)) { Text("Ver como configurar no jogo", fontSize = 12.sp) }
+                  }
+                  OutlinedButton(onClick = { showLoad = true }, modifier = Modifier.fillMaxWidth()) { Text("Carregar perfil salvo") }
+
+                  NCard(border = Blue) {
+                      Title("Sensi com IA")
+                      Muted("Usa o seu backend (a chave da API fica lá, nunca no app). Só envia jogo, aparelho, estilo e o que você escrever, com seu consentimento.")
+                      Gap(8)
+                      OutlinedTextField(difficulty, { difficulty = it }, label = { Text("Descreva sua dificuldade (ex: minha mira passa do alvo)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                      Gap(8)
+                      Button(onClick = { callAi(false) }, enabled = !aiBusy, modifier = Modifier.fillMaxWidth()) { Text("Gerar sensi personalizada") }
+                      OutlinedButton(onClick = { callAi(true) }, enabled = !aiBusy, modifier = Modifier.fillMaxWidth()) { Text("Buscar sensi atualizada") }
+                      if (aiBusy) { Gap(8); Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.padding(4.dp)); Text("  Consultando...") } }
+                      if (aiMsg != null) { Gap(8); Text(aiMsg ?: "", color = Gold) }
+                      AnimatedVisibility(visible = aiResult != null) {
+                          val r = aiResult
